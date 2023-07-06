@@ -141,3 +141,34 @@ qc_fluxes <- function(ghg_fluxes, valve_key) {
   ggsave("outputs/fluxes_ch4.pdf", plot = p_ch4, width = 8, height = 6)
   
 }
+
+
+clean_data <- function(raw_data = picarro_raw, tz = "", remove_valves = c()) {
+  if(is.null(raw_data)) return(NULL)
+  
+  if(tz == "") {
+    warning("Time zone blank and so being set to UTC; is this correct?")
+    tz <- "UTC"
+  }
+  
+  if(length(remove_valves)) {
+    message("Removing valves ", remove_valves)
+  }
+  
+  # Create DATETIME field and select columns we need
+  raw_data$DATETIME = as.POSIXct(paste(raw_data$DATE, raw_data$TIME),
+                                 format = "%Y-%m-%d %H:%M:%S",
+                                 tz = tz)
+  raw_data <- raw_data[c("DATETIME", "ALARM_STATUS", "MPVPosition",
+                         "CH4_dry", "CO2_dry", "H2O")]
+  
+  DATETIME <- MPVPosition <- NULL  # silence package check notes
+  
+  subset(raw_data,
+         # discard any fractional valve numbers,
+         MPVPosition == floor(MPVPosition) &
+           # invalid timestamps,
+           !is.na(DATETIME) &
+           # and unwanted valves
+           !MPVPosition %in% remove_valves)
+}

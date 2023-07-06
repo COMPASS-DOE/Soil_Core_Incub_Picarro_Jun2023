@@ -14,14 +14,13 @@
 # 1. setup ----
 ## load packages
 library(tidyverse) # to clean/tidy data, and plot data
-library(lubridate) # to work with dates
 
 # My 'picarro.data' package isn't on CRAN (yet) so need to install it via:
 # devtools::install_github("PNNL-TES/picarro.data")
 library(picarro.data)
 
 ## load the picarro processing functions
-source("code/1a-picarro_data.R")
+source("2-code/1a-picarro_data.R")
 
 ## set Picarro Path
 # this is the directory where the Picarro data files are being stored
@@ -36,7 +35,7 @@ valve_key_df = googlesheets4::read_sheet("1PIAhiXA64Dk6BHql1hwvmxptAYcvl4-1ywCc5
 valve_key = 
   valve_key_df %>% 
   dplyr::select(-c(Start_Date, Start_Time, Stop_Date, Stop_Time)) %>% 
-  filter(!is.na(Start_datetime)) %>% 
+  filter(!is.na(Start_datetime) & !is.na(Stop_datetime)) %>% 
   mutate(Core = as.character(Core),
          Start_datetime = ymd_hms(Start_datetime),
          Stop_datetime = ymd_hms(Stop_datetime)) %>%
@@ -64,8 +63,7 @@ ghg_ppm =
          DATETIME <= Stop_datetime & DATETIME >= Start_datetime & Core == Core) %>% 
   dplyr::select(-Start_datetime, -Stop_datetime) %>% 
   left_join(core_key) %>% 
-  dplyr::select(Core, DATETIME, MPVPosition, CH4_dry, CO2_dry, Elapsed_seconds, 
-                Core_assignment)
+  dplyr::select(Core, DATETIME, MPVPosition, CH4_dry, CO2_dry, Elapsed_seconds)
 
 
 # compute fluxes
@@ -76,9 +74,9 @@ ghg_fluxes = compute_ghg_fluxes(picarro_clean_matched, valve_key)
 # 3. make graphs ----
 
 ghg_ppm %>% 
-  ggplot(aes(x = DATETIME, y = CO2_dry))+
+  ggplot(aes(x = DATETIME, y = CO2_dry, color = as.character(Core)))+
   geom_point()+
-  facet_wrap(~Core_assignment)  
+  facet_wrap(~Core)  
 
 
 
@@ -95,7 +93,7 @@ gf =
   left_join(core_key) %>% 
   filter(flux_co2_umol_s >= 0) %>% 
   # remove outliers
-  group_by(Core_assignment) %>% 
+  group_by(Core) %>% 
   dplyr::mutate(mean = mean(flux_co2_umol_s),
                 median = median(flux_co2_umol_s),
                 sd = sd(flux_co2_umol_s)) 
@@ -104,7 +102,7 @@ gf =
 gf %>% 
   ggplot(aes(x = DATETIME, y = flux_co2_umol_s))+
   geom_point()+
-  facet_wrap(~Core_assignment)
+  facet_wrap(~Core)
 
 
 
